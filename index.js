@@ -3,7 +3,7 @@ const cors = require('cors');
 const app = express();
 require('dotenv').config();
 const multer = require('multer')
-const { MongoClient, ServerApiVersion, GridFSBucket } = require('mongodb');
+const { MongoClient, ServerApiVersion, GridFSBucket, ObjectId } = require('mongodb');
 const port = process.env.port || 5000
 
 
@@ -125,7 +125,7 @@ app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
 
     const uploadStream = bucket.openUploadStream(req.file.originalname, {
         contentType: req.file.mimetype,
-        metadata: {semester, department, subject}
+        metadata: { semester, department, subject }
     });
 
     uploadStream.end(req.file.buffer);
@@ -139,6 +139,52 @@ app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
         res.status(500).send({ message: "Error uploading file" })
     })
 })
+
+/* Get pdf by semester and subject */
+app.get('/pdfs/:semester/:department/:subject', async (req, res) => {
+    console.log(req.params);
+    const { semester, department, subject } = req.params;
+    try {
+        const files = await pdfCollection.collection('pdf.files').find({
+            'metadata.semester': semester,
+            'metadata.department': department,
+            'metadata.subject': subject,
+
+        }).toArray();
+
+        // generate download url
+
+        res.json(files)
+    } catch (error) {
+        console.log(error);
+    }
+})
+/* preview pdf */
+
+app.get('/preview/:id', async (req, res) => {
+    const id = req.params.id;
+    try {
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send('Invalid ID');
+        }
+        const query = { _id: new ObjectId(id) }
+        const files = await pdfCollection.collection('pdf.files').find(query).toArray();
+        if (!files || files.length === 0) {
+            return res.status(404).send('File not found');
+        }
+        res.set('Content-Type', files[0].contentType);
+        res.set('Content-Disposition', 'inline');
+        const downloadStream = bucket.openDownloadStream(new ObjectId(id));
+        downloadStream.pipe(res);
+        downloadStream.on('error', (err) => {
+            res.status(500).send({ error: err.message })
+        })
+    } catch (err) {
+        console.log(err);
+    }
+})
+
+
 
 app.listen(port, () => {
     console.log(`app is running on port:${port}`);
