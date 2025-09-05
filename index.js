@@ -1,9 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const jwt = require('jsonwebtoken')
 require('dotenv').config();
-const multer = require('multer')
-const { MongoClient, ServerApiVersion, GridFSBucket, ObjectId } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.port || 5000
 
 
@@ -12,10 +12,6 @@ app.use(cors());
 
 
 
-const storage = multer.memoryStorage();
-const upload = multer({
-    storage
-})
 
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.1xmeg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -29,15 +25,15 @@ const client = new MongoClient(uri, {
     }
 });
 
-let subjectCollection, pdfCollection, bucket;
+let subjectCollection, pdfCollection, usersCollection;
 
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
         subjectCollection = client.db('note-hive').collection('semester');
-        pdfCollection = client.db('note-hive');
-        bucket = new GridFSBucket(pdfCollection, { bucketName: 'pdf' })
+        pdfCollection = client.db('note-hive').collection('pdf');
+        usersCollection = client.db('note-hive').collection('users');
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -47,6 +43,18 @@ async function run() {
     }
 }
 run().catch(console.dir);
+
+
+/* jwt related apis */
+app.post('/jwt', async (req, res) => {
+    const user = req.body;
+    const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+        expiresIn: '1h'
+    })
+
+    res.send({ token })
+
+})
 
 /* get semester name and image */
 app.get('/semesters', async (req, res) => {
@@ -118,26 +126,26 @@ app.get('/subjects/:semester/:department', async (req, res) => {
 
 
 /* upload a pdf */
-app.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
-    const { semester, department, subject } = req.body;
+app.post('/upload-pdf', async (req, res) => {
+    const { semester, department, subject, driveUrl } = req.body;
+    if (!semester || !department || !subject || !driveUrl) {
+        res.status(400).send({ message: 'all fields are required' })
+    }
 
-    if (!req.file) return res.status(400).send('No file uploaded');
+    try {
+        const pdfDoc = {
+            semester,
+            department,
+            subject,
+            driveUrl,
+            createdAt: new Date(),
+        }
+        const result = await pdfCollection.insertOne(pdfDoc);
+        res.send(result);
 
-    const uploadStream = bucket.openUploadStream(req.file.originalname, {
-        contentType: req.file.mimetype,
-        metadata: { semester, department, subject }
-    });
-
-    uploadStream.end(req.file.buffer);
-
-    uploadStream.on('finish', () => {
-        res.json({ success: true, fileId: uploadStream.id })
-    })
-
-    uploadStream.on('error', (error) => {
-        console.log(error);
-        res.status(500).send({ message: "Error uploading file" })
-    })
+    } catch (err) {
+        console.log(err);
+    }
 })
 
 /* Get pdf by semester and subject */
@@ -145,46 +153,26 @@ app.get('/pdfs/:semester/:department/:subject', async (req, res) => {
     console.log(req.params);
     const { semester, department, subject } = req.params;
     try {
-        const files = await pdfCollection.collection('pdf.files').find({
-            'metadata.semester': semester,
-            'metadata.department': department,
-            'metadata.subject': subject,
-
-        }).toArray();
-
-        // generate download url
-
+        const files = await pdfCollection.find({ semester, subject, department }).toArray();
         res.json(files)
     } catch (error) {
         console.log(error);
     }
 })
-/* preview pdf */
 
-app.get('/preview/:id', async (req, res) => {
-    const id = req.params.id;
-    try {
-        if (!ObjectId.isValid(id)) {
-            return res.status(400).send('Invalid ID');
-        }
-        const query = { _id: new ObjectId(id) }
-        const files = await pdfCollection.collection('pdf.files').find(query).toArray();
-        if (!files || files.length === 0) {
-            return res.status(404).send('File not found');
-        }
-        res.set('Content-Type', files[0].contentType);
-        res.set('Content-Disposition', 'inline');
-        const downloadStream = bucket.openDownloadStream(new ObjectId(id));
-        downloadStream.pipe(res);
-        downloadStream.on('error', (err) => {
-            res.status(500).send({ error: err.message })
-        })
-    } catch (err) {
-        console.log(err);
+/* User related apis */
+app.post('/users', async (req, res) => {
+    const user = req.body;
+    const query = { email: user.email };
+    const existingUser = await usersCollection.findOne(query);
+    if (existingUser) {
+        return res.status(400).send({ message: 'user already exist' })
     }
+    const newUser = { ...user, role: 'user' };
+    const result = await usersCollection.insertOne(newUser);
+    res.send(result);
+
 })
-
-
 
 app.listen(port, () => {
     console.log(`app is running on port:${port}`);
