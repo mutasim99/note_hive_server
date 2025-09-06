@@ -25,7 +25,7 @@ const client = new MongoClient(uri, {
     }
 });
 
-let subjectCollection, pdfCollection, usersCollection;
+let subjectCollection, pdfCollection, usersCollection, classesCollection;
 
 async function run() {
     try {
@@ -34,6 +34,7 @@ async function run() {
         subjectCollection = client.db('note-hive').collection('semester');
         pdfCollection = client.db('note-hive').collection('pdf');
         usersCollection = client.db('note-hive').collection('users');
+        classesCollection = client.db('note-hive').collection('classes')
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -172,6 +173,28 @@ app.post('/users', async (req, res) => {
     const result = await usersCollection.insertOne(newUser);
     res.send(result);
 
+})
+
+/* Get today's classes */
+app.post('/api/todayClasses', async (req, res) => {
+    const { semester, department, institution, year } = req.body;
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    const today = new Date().getDay();
+    const todayName = days(today);
+    
+    
+
+    if (todayName === "Friday" || todayName === "Saturday") {
+        res.status(400).send({ message: 'No classes today (holiday' });
+    };
+
+    const routine = await classesCollection.findOne({ institution, department, semester, year });
+    if (!routine) {
+        return res.status(404).json({ message: "Routine not found" });
+    };
+
+    res.json(routine.routine[todayName] || []);
 })
 
 app.listen(port, () => {
