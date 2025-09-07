@@ -60,6 +60,7 @@ app.post('/jwt', async (req, res) => {
 
 /* get semester name and image */
 app.get('/semesters', verifyToken, async (req, res) => {
+
     try {
         const semesters = await subjectCollection.aggregate([
             {
@@ -89,7 +90,7 @@ app.get('/semesters', verifyToken, async (req, res) => {
 })
 
 /* Get department Name */
-app.get('/departments/:semester', async (req, res) => {
+app.get('/departments/:semester', verifyToken, async (req, res) => {
     const { semester } = req.params;
     const departments = await subjectCollection.aggregate([
         {
@@ -111,7 +112,7 @@ app.get('/departments/:semester', async (req, res) => {
 })
 
 /* get subject name */
-app.get('/subjects/:semester/:department', async (req, res) => {
+app.get('/subjects/:semester/:department', verifyToken, async (req, res) => {
     const { semester, department } = req.params;
     try {
         const subjects = await subjectCollection.find(
@@ -128,7 +129,7 @@ app.get('/subjects/:semester/:department', async (req, res) => {
 
 
 /* upload a pdf */
-app.post('/upload-pdf', async (req, res) => {
+app.post('/upload-pdf', verifyToken, async (req, res) => {
     const { semester, department, subject, driveUrl } = req.body;
     if (!semester || !department || !subject || !driveUrl) {
         res.status(400).send({ message: 'all fields are required' })
@@ -151,7 +152,7 @@ app.post('/upload-pdf', async (req, res) => {
 })
 
 /* Get pdf by semester and subject */
-app.get('/pdfs/:semester/:department/:subject', async (req, res) => {
+app.get('/pdfs/:semester/:department/:subject', verifyToken, async (req, res) => {
     console.log(req.params);
     const { semester, department, subject } = req.params;
     try {
@@ -190,6 +191,23 @@ app.get('/users/:email', async (req, res) => {
     const query = { email: { $ne: email } }
     const result = await usersCollection.find(query).toArray();
     res.send(result)
+})
+
+/* update user status */
+app.patch('/user/:email', async (req, res) => {
+    const email = req.params.email;
+    const filter = { email: email };
+    const user = await usersCollection.findOne(filter);
+    if (!user || user?.status === 'Requested') {
+        return res.status(400).send({ message: 'you already send request please wait!!!' })
+    };
+    const updateDoc = {
+        $set: {
+            status: 'Requested'
+        }
+    };
+    const result = await usersCollection.updateOne(filter, updateDoc);
+    res.send(result);
 })
 
 /* Get today's classes */
