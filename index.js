@@ -210,6 +210,20 @@ app.patch('/user/:email', async (req, res) => {
     res.send(result);
 })
 
+/* Update user role */
+app.patch('/users/role/:email', async (req, res) => {
+    const email = req.params.email;
+    const { role } = req.body;
+    const filter = { email: email }
+    const updateDoc = {
+        $set: {
+            role, status: "Approved"
+        }
+    }
+    const result = await usersCollection.updateOne(filter, updateDoc)
+    res.send(result);
+})
+
 /* Get today's classes */
 app.post('/api/todayClasses', async (req, res) => {
     const { semester, department, institution, year } = req.body;
