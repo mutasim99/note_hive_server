@@ -4,6 +4,7 @@ const app = express();
 const jwt = require('jsonwebtoken')
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { verifyToken } = require('./JwtVerify/VerifyToken');
 const port = process.env.port || 5000
 
 
@@ -58,7 +59,7 @@ app.post('/jwt', async (req, res) => {
 })
 
 /* get semester name and image */
-app.get('/semesters', async (req, res) => {
+app.get('/semesters', verifyToken, async (req, res) => {
     try {
         const semesters = await subjectCollection.aggregate([
             {
@@ -162,6 +163,7 @@ app.get('/pdfs/:semester/:department/:subject', async (req, res) => {
 })
 
 /* User related apis */
+
 app.post('/users', async (req, res) => {
     const user = req.body;
     const query = { email: user.email };
@@ -175,15 +177,29 @@ app.post('/users', async (req, res) => {
 
 })
 
+/* Get user role */
+app.get('/user/role/:email', async (req, res) => {
+    const email = req.params.email;
+    const result = await usersCollection.findOne({ email });
+    res.send({ role: result?.role })
+})
+
+/* Get all users */
+app.get('/users/:email', async (req, res) => {
+    const email = req.params.email;
+    const query = { email: { $ne: email } }
+    const result = await usersCollection.find(query).toArray();
+    res.send(result)
+})
+
 /* Get today's classes */
 app.post('/api/todayClasses', async (req, res) => {
     const { semester, department, institution, year } = req.body;
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
     const today = new Date().getDay();
-    const todayName = days(today);
-    
-    
+    const todayName = days[today];
+
 
     if (todayName === "Friday" || todayName === "Saturday") {
         res.status(400).send({ message: 'No classes today (holiday' });
