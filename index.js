@@ -139,6 +139,21 @@ app.get('/subjects/:semester/:department', verifyToken, async (req, res) => {
     }
 })
 
+/* Get all subject name */
+app.get('/allSubject', async (req, res) => {
+    const subjects = await subjectCollection.aggregate([
+        {
+            $unwind: "$subjects"
+        },
+        {
+            $sample: { size: 15 }
+        },
+        {
+            $group: { _id: null, subjects: { $addToSet: '$subjects' } }
+        }
+    ]).toArray();
+    res.send(subjects)
+})
 
 /* upload a pdf */
 app.post('/upload-pdf', verifyToken, async (req, res) => {
