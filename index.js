@@ -31,14 +31,14 @@ let subjectCollection, pdfCollection, usersCollection, classesCollection;
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
         subjectCollection = client.db('note-hive').collection('semester');
         pdfCollection = client.db('note-hive').collection('pdf');
         usersCollection = client.db('note-hive').collection('users');
         classesCollection = client.db('note-hive').collection('classes')
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
@@ -57,6 +57,18 @@ app.post('/jwt', async (req, res) => {
     res.send({ token })
 
 })
+
+/* Verify admin */
+const verifyAdmin = async (req, res, next) => {
+    const email = req.decoded.email;
+    const query = { email: email }
+    const user = await usersCollection.findOne(query);
+    const isAdmin = user?.role === 'admin';
+    if (!isAdmin) {
+        return res.status(401).send({ message: 'unauthorized' })
+    };
+    next();
+}
 
 /* get semester name and image */
 app.get('/semesters', verifyToken, async (req, res) => {
@@ -186,7 +198,7 @@ app.get('/user/role/:email', async (req, res) => {
 })
 
 /* Get all users */
-app.get('/users/:email', async (req, res) => {
+app.get('/users/:email', verifyToken, verifyAdmin, async (req, res) => {
     const email = req.params.email;
     const query = { email: { $ne: email } }
     const result = await usersCollection.find(query).toArray();
@@ -211,7 +223,7 @@ app.patch('/user/:email', async (req, res) => {
 })
 
 /* Update user role */
-app.patch('/users/role/:email', async (req, res) => {
+app.patch('/users/role/:email', verifyToken, verifyAdmin, async (req, res) => {
     const email = req.params.email;
     const { role } = req.body;
     const filter = { email: email }
@@ -225,7 +237,7 @@ app.patch('/users/role/:email', async (req, res) => {
 })
 
 /* Get today's classes */
-app.post('/api/todayClasses', async (req, res) => {
+app.post('/api/todayClasses', verifyToken, async (req, res) => {
     const { semester, department, institution, year } = req.body;
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -234,7 +246,7 @@ app.post('/api/todayClasses', async (req, res) => {
 
 
     if (todayName === "Friday" || todayName === "Saturday") {
-        res.status(400).send({ message: 'No classes today (holiday' });
+        res.status(400).send({ message: 'No classes today holiday' });
     };
 
     const routine = await classesCollection.findOne({ institution, department, semester, year });
