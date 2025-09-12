@@ -228,7 +228,7 @@ app.get('/user/role/:email', async (req, res) => {
 })
 
 /* Get all users */
-app.get('/users/:email', verifyToken, verifyAdmin, async (req, res) => {
+app.get('/users/:email', async (req, res) => {
     const email = req.params.email;
     const query = { email: { $ne: email } }
     const result = await usersCollection.find(query).toArray();
@@ -265,21 +265,33 @@ app.patch('/users/role/:email', verifyToken, verifyAdmin, async (req, res) => {
     const result = await usersCollection.updateOne(filter, updateDoc)
     res.send(result);
 })
+/* Get signIn user */
+app.get('/api/user/:email', async (req, res) => {
+    const email = req.params.email;
+    const user = await usersCollection.findOne({ email })
+    res.send(user)
+})
 
 /* Get today's classes */
-app.post('/api/todayClasses', verifyToken, async (req, res) => {
-    const { semester, department, institution, year } = req.body;
+app.get('/api/todayClasses', verifyToken, async (req, res) => {
+    const { semester, department, institution, year } = req.query;
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
     const today = new Date().getDay();
     const todayName = days[today];
-
+    // const todayName = 'Sunday'
+    
 
     if (todayName === "Friday" || todayName === "Saturday") {
-        res.status(400).send({ message: 'No classes today holiday' });
+        return res.status(200).send({ message: 'No classes today holiday' });
     };
 
-    const routine = await classesCollection.findOne({ institution, department, semester, year });
+    const routine = await classesCollection.findOne({
+        institution,
+        department,
+        semester: Number(semester),
+        year: Number(year)
+    });
     if (!routine) {
         return res.status(404).json({ message: "Routine not found" });
     };
