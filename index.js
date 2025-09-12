@@ -53,7 +53,6 @@ app.post('/jwt', async (req, res) => {
     const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
         expiresIn: '1h'
     })
-
     res.send({ token })
 
 })
@@ -157,7 +156,7 @@ app.get('/allSubject', async (req, res) => {
 
 /* upload a pdf */
 app.post('/upload-pdf', verifyToken, async (req, res) => {
-    const { semester, department, subject, driveUrl } = req.body;
+    const { semester, department, subject, title, driveUrl } = req.body;
     if (!semester || !department || !subject || !driveUrl) {
         res.status(400).send({ message: 'all fields are required' })
     }
@@ -168,6 +167,7 @@ app.post('/upload-pdf', verifyToken, async (req, res) => {
             department,
             subject,
             driveUrl,
+            title,
             views: 0,
             createdAt: new Date(),
         }
