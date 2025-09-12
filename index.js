@@ -168,6 +168,7 @@ app.post('/upload-pdf', verifyToken, async (req, res) => {
             department,
             subject,
             driveUrl,
+            views: 0,
             createdAt: new Date(),
         }
         const result = await pdfCollection.insertOne(pdfDoc);
@@ -185,6 +186,20 @@ app.get('/pdfs/:semester/:department/:subject', verifyToken, async (req, res) =>
     try {
         const files = await pdfCollection.find({ semester, subject, department }).toArray();
         res.json(files)
+    } catch (error) {
+        console.log(error);
+    }
+})
+
+/* Get latest uploaded pdf */
+app.get('/latest-materials', async (req, res) => {
+    try {
+        const materials = await pdfCollection
+            .find()
+            .sort({ createdAt: -1 })
+            .limit(4).toArray();
+
+        res.send(materials)
     } catch (error) {
         console.log(error);
     }
