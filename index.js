@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken')
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { verifyToken } = require('./JwtVerify/VerifyToken');
+const dailyTaskRoutes = require('./Routes/task');
+const eventRoutes = require('./Routes/event');
 const port = process.env.port || 5000
 
 
@@ -32,6 +34,13 @@ async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
         // await client.connect();
+        dailyTaskCollection = client.db('note-hive').collection('dailyTask')
+        evenCollections = client.db('note-hive').collection('event')
+
+
+        app.use('/api', dailyTaskRoutes(dailyTaskCollection));
+        app.use('/api', eventRoutes(evenCollections));
+
         subjectCollection = client.db('note-hive').collection('semester');
         pdfCollection = client.db('note-hive').collection('pdf');
         usersCollection = client.db('note-hive').collection('users');
@@ -228,7 +237,7 @@ app.get('/user/role/:email', async (req, res) => {
 })
 
 /* Get all users */
-app.get('/users/:email', async (req, res) => {
+app.get('/users/:email', verifyToken, verifyAdmin, async (req, res) => {
     const email = req.params.email;
     const query = { email: { $ne: email } }
     const result = await usersCollection.find(query).toArray();
@@ -266,7 +275,7 @@ app.patch('/users/role/:email', verifyToken, verifyAdmin, async (req, res) => {
     res.send(result);
 })
 /* Get signIn user */
-app.get('/api/user/:email', async (req, res) => {
+app.get('/api/user/:email', verifyToken, async (req, res) => {
     const email = req.params.email;
     const user = await usersCollection.findOne({ email })
     res.send(user)
@@ -280,7 +289,7 @@ app.get('/api/todayClasses', verifyToken, async (req, res) => {
     const today = new Date().getDay();
     const todayName = days[today];
     // const todayName = 'Sunday'
-    
+
 
     if (todayName === "Friday" || todayName === "Saturday") {
         return res.status(200).send({ message: 'No classes today holiday' });
