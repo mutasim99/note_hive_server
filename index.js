@@ -286,8 +286,9 @@ app.get('/api/todayClasses', verifyToken, async (req, res) => {
     const { semester, department, institution, year } = req.query;
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-    const today = new Date().getDay();
-    const todayName = days[today];
+    const today = new Date().toLocaleString("en-US", { timeZone: "Asia/Dhaka" });
+    const todayDay = new Date(today).getDay();
+    const todayName = days[todayDay];
     // const todayName = 'Sunday'
 
 
