@@ -320,7 +320,14 @@ function formatSemester(sem) {
 /* get subject name by user semester */
 app.get('/profile/subject/:userId', async (req, res) => {
     try {
-        const user = await usersCollection.findOne({ _id: new ObjectId(req.params.userId) });
+        const { userId } = req.params; // extract string
+
+        // Validate ObjectId
+        if (!ObjectId.isValid(userId)) {
+            return res.status(400).json({ message: "Invalid user ID" });
+        }
+
+        const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
         if (!user) return res.status(404).json({ message: "User not found" });
 
         const formattedSemester = formatSemester(user.semester);
@@ -331,21 +338,43 @@ app.get('/profile/subject/:userId', async (req, res) => {
         ).toArray();
 
         const allSubjects = subjects.flatMap(s => s.subjects);
-        res.json(allSubjects)
+        res.json(allSubjects);
     } catch (err) {
         console.log(err);
+        res.status(500).json({ message: "Server error" });
     }
-})
+});
+
 
 /* Get subject materials by subjects of logged user */
 app.get('/pdfs/:subject/:userId', async (req, res) => {
-    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.userId) });
-    if (!user) {
-        return res.status(404).json({ message: "User not found" });
-    };
+    try {
+        const { subject, userId } = req.params;
 
-    const formattedSemester = formatSemester(user.semester)
-})
+        // Validate ObjectId
+        if (!ObjectId.isValid(userId)) {
+            return res.status(400).json({ message: "Invalid user ID" });
+        }
+
+        const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const formattedSemester = formatSemester(user.semester);
+
+        const files = await pdfCollection.find({
+            semester: formattedSemester,
+            department: user.department,
+            subject
+        }).toArray();
+
+        res.json(files);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+
 
 app.listen(port, () => {
     console.log(`app is running on port:${port}`);
