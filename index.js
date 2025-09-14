@@ -147,7 +147,7 @@ app.get('/subjects/:semester/:department', verifyToken, async (req, res) => {
     }
 })
 
-/* Get all subject name */
+/* Get some subject name */
 app.get('/allSubject', async (req, res) => {
     const subjects = await subjectCollection.aggregate([
         {
@@ -307,6 +307,44 @@ app.get('/api/todayClasses', verifyToken, async (req, res) => {
     };
 
     res.json(routine.routine[todayName] || []);
+})
+
+/* Formatted semester  */
+function formatSemester(sem) {
+    const [year, semNum] = sem.split(":").map(Number);
+    const yearMap = ["1st year", "2nd year", "3rd year", "4th year"];
+    const semMap = ["1st semester", "2nd semester"];
+    return `${yearMap[year - 1]} ${semMap[semNum - 1]}`
+}
+
+/* get subject name by user semester */
+app.get('/profile/subject/:userId', async (req, res) => {
+    try {
+        const user = await usersCollection.findOne({ _id: new ObjectId(req.params.userId) });
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const formattedSemester = formatSemester(user.semester);
+
+        const subjects = await subjectCollection.find(
+            { semester: formattedSemester, department: user.department },
+            { projection: { _id: 0, subjects: 1 } }
+        ).toArray();
+
+        const allSubjects = subjects.flatMap(s => s.subjects);
+        res.json(allSubjects)
+    } catch (err) {
+        console.log(err);
+    }
+})
+
+/* Get subject materials by subjects of logged user */
+app.get('/pdfs/:subject/:userId', async (req, res) => {
+    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.userId) });
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    };
+
+    const formattedSemester = formatSemester(user.semester)
 })
 
 app.listen(port, () => {
