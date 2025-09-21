@@ -281,6 +281,25 @@ app.get('/api/user/:email', verifyToken, async (req, res) => {
     res.send(user)
 })
 
+/* update signIn user */
+app.patch('/api/update/:email',  async (req, res) => {
+    const { semester, department, institution } = req.body;
+    if (!semester || !department || !institution) {
+        return res.send({ message: 'please fill all the field' })
+    }
+    const email = req.params.email;
+    const filter = { email: email };
+    const updateDoc = {
+        $set: {
+            semester,
+            department,
+            institution
+        }
+    }
+    const result = await usersCollection.updateOne(filter, updateDoc);
+    res.send(result)
+})
+
 /* Get today's classes */
 app.get('/api/todayClasses', verifyToken, async (req, res) => {
     const { semester, department, institution, year } = req.query;
